@@ -1,0 +1,38 @@
+#building titanic model
+setwd("C:\\Users\\Gaurish\\Desktop\\winter_vacation")
+train_set<-read.csv("train.csv",header = TRUE,stringsAsFactors=FALSE,na.strings = c(""))
+test_set<-read.csv("test.csv",header = TRUE,stringsAsFactors=FALSE)
+train_set$IsTrainSet<-TRUE
+test_set$IsTrainSet<-FALSE
+test_set$Survived<-NA
+#combining data set
+titanic_full<-rbind(train_set,test_set)
+#checking null value
+null_values<-lapply(titanic_full, function(x) sum(is.na(x)))
+null_values<-data.frame(null_values)
+library(tidyr)
+gather(null_values) #only test data has NA values in survived
+#data cleaning, replacing age with same sex median value
+Male_Age_median<-median(titanic_full[titanic_full$Sex=="male","Age"],na.rm = TRUE)
+FeMale_Age_median<-median(titanic_full[titanic_full$Sex=="female","Age"],na.rm = TRUE)
+titanic_full[is.na(titanic_full$Age) & titanic_full$Sex == "male","Age"]<-Male_Age_median
+titanic_full[is.na(titanic_full$Age) & titanic_full$Sex == "female","Age"]<-FeMale_Age_median
+titanic_full[is.na(titanic_full$Fare),"Fare"]<-median(titanic_full$Fare,na.rm = TRUE)
+#now data is cleaned up, converting variables into catagorical variable
+titanic_full$Survived<-as.factor(titanic_full$Survived)#to let the model know it is classification problem and binary,(not a multiclass,classification)
+titanic_full$Pclass<-as.factor(titanic_full$Pclass)
+titanic_full$Sex<-as.factor(titanic_full$Sex)
+titanic_full[titanic_full$Embarked=="","Embarked"]<-"S"
+titanic_full$Embarked<-as.factor(titanic_full$Embarked)
+
+
+train_set<-titanic_full[titanic_full$IsTrainSet==TRUE,]
+test_set<-titanic_full[!titanic_full$IsTrainSet==TRUE,]
+
+#applying random forest classification to predict survivors
+library(randomForest)
+classifier<-randomForest(x=train_set[,c(3,5,6,7,8,10,12)],y=train_set[,2],ntree = 500)
+Survived<-predict(classifier,newdata = test_set[,c(3,5,6,7,8,10,12)])
+PassengerId<-test_set$PassengerId
+output<-data.frame(PassengerId,Survived)
+write.csv(output,file="titanic_kaggle.csv",row.names = FALSE)
